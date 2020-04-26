@@ -1,0 +1,9 @@
+database_user = "user"
+database_password = "password"
+database_host = "localhost"
+database_db = "database"
+database_port = 3306
+
+mqtt_id = "mqtt_id"
+mqtt_host = "localhost"
+mqtt_port = 1883

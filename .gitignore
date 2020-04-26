@@ -1,0 +1,5 @@
+/target
+/docker/mysql/db_config.env
+/docker/mosquitto/data/*
+/docker/mosquitto/log/*
+/Settings.toml
