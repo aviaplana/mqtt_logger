@@ -75,7 +75,7 @@ fn main() {
     
 
     loop {
-
+        sleep(Duration::from_secs(60));
     }
 
 }

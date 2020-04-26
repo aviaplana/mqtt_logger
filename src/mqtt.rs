@@ -28,7 +28,7 @@ impl fmt::Display for Packet {
 #[derive(Debug)]
 pub enum MqttError {
     ConnectionError(rumqtt::ConnectError),
-    SubscriptionError(rumqtt::ClientError)
+    SubscriptionError(Box<rumqtt::ClientError>)
 }
 
 impl fmt::Display for MqttError {
@@ -72,10 +72,11 @@ impl From<&HashMap<String, String>> for MqttConfig {
     }
 }
 
+type CallbackHashMap = Arc<Mutex<HashMap<String, Box<dyn Fn(Packet) + Send>>>>;
 pub struct Mqtt {
     notifications: Receiver<Notification>,
     client: MqttClient,
-    callbacks: Arc<Mutex<HashMap<String, Box<dyn Fn(Packet) + Send>>>>,
+    callbacks: CallbackHashMap,
 }
 
 impl Mqtt {
@@ -95,7 +96,7 @@ impl Mqtt {
 
     pub fn subscribe(&mut self, topic: &str) -> Result<(), MqttError> {
         match self.client.subscribe(topic, QoS::AtLeastOnce) {
-            Err(e) => Err(MqttError::SubscriptionError(e)),
+            Err(e) => Err(MqttError::SubscriptionError(Box::new(e))),
             Ok(_) => Ok(())
         }
     }
@@ -113,27 +114,19 @@ impl Mqtt {
 
         thread::spawn(move | | loop {
             for notification in &notifications {
-                match notification {
-                    Notification::Publish(packet) => {
-                        match  callbacks
-                                .lock()
-                                .unwrap()
-                                .get(&packet.topic_name) {
-                            Some(ref callback) => {
-                                let pack = Packet {
-                                    payload: String::from_utf8(packet.payload.to_vec()).unwrap(),
-                                    topic: packet.topic_name
-                                };
-                                
-                                println!("{}", pack);
+                if let Notification::Publish(packet) = notification {
+                    if let Some(ref callback) = callbacks.lock().unwrap().get(&packet.topic_name) {
+                        let pack = Packet {
+                            payload: String::from_utf8(packet.payload.to_vec()).unwrap(),
+                            topic: packet.topic_name
+                        };
+                        
+                        println!("{}", pack);
 
-                                callback(pack);
-                            },
-                            _ => ()
-                        }
-                    },
-                    _ => ()
+                        callback(pack);
+                    }
                 }
+
             }
         });
     }
